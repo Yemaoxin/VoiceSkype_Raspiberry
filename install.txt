@@ -1,0 +1,12 @@
+#sudo apt-get 需要的部件
+ffmpeg的依赖：
+  sudo apt-get install ffmpeg
+snowboy的依赖：
+  sudo apt-get install pulseaudio
+  sudo apt-get install sox
+  sudo apt-get install libatlas-base-dev
+vlc的依赖：
+  sudo apt-get install  vlc
+
+mac 端安装还要一个pip 安装appscript 用于与系统进行交互
+还有pyobjc

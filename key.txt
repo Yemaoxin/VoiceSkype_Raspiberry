@@ -1,0 +1,16 @@
+baidu:
+   APP_ID="18754384"
+   APP_KEY="VjxtYrtYNaN7RIchnj0MfE7H"
+   SECRET_KEY="VyXqlikq1LNnDd2cQ9sfwQO2ghGFenWZ"
+
+snowboy:
+   API_TOKEN="0a5fad2d4d0a810864dabb11b6000699bb5ce797"
+
+gaode:
+  key=788ac9d7b6100df59442f5abf8cbcc85
+
+QQ:
+  APP_ID:2130944758
+  APP_KEY:LGcjMhNMuD8wsYFI
+
+
