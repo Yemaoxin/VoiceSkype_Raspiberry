@@ -15,16 +15,23 @@
 
  1. 程序需要在MacOS或者Linux等基于Unix的操作系统上使用
  Mac成本比较大，推荐使用树莓派+普通音箱+普通免驱麦克风
- 或者使用搭载有Ubuntu的电脑也可以，树莓派1GB也可以很好的运行
+ 或者使用搭载有Ubuntu的电脑也可以
+ 
+ 树莓派1GB版本也可以很好的运行
+ 
  2. 本版本使用的硬件信息：
-    树莓派4B 2GB *1
-    32GB flash闪存卡 *1
-    5v/9v 2A/1A 充电头 *1
-    typeC充电器 *1
-    树莓派九层亚克力板框架+风扇*1
-    树莓派免驱麦克风（10元）*1
-    索爱音箱（20元）*1
-    整套下来450元
+    树莓派4B 2GB *1  
+    32GB flash闪存卡 *1  
+    5v/9v 2A/1A 充电头 *1  
+    typeC充电器 *1  
+    树莓派九层亚克力板框架+风扇*1  
+    树莓派免驱麦克风（10元）*1  
+    索爱音箱（20元）*1  
+    整套下来450元  
+
+### 操作系统限制
+
+由于使用的snowboy的热词检测和唤醒，仅支持Unix系统的平台，所以，windows上无法部署。
 
 
 ### 实现简述
@@ -47,7 +54,7 @@
 
 使用VLC的python封装实现在线音乐播放
 
-使用https://github.com/Binaryify/NeteaseCloudMusicApi/issues提供的网易云音乐api，在自建的服务器上搭建了一个代理网站。
+使用https://github.com/Binaryify/NeteaseCloudMusicApi/issues提供的网易云音乐api，通过nodejs直接在树莓派上搭建本地API服务器。
 
 以上是简略的一些介绍。
 

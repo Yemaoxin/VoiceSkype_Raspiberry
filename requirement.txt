@@ -20,5 +20,4 @@ baidu-aip==2.2.18.0
 beautifulsoup4==4.8.2
 certifi==2019.11.28
 pampy==0.3.0
-pyobjc==6.1
 python-vlc==3.0.7110
