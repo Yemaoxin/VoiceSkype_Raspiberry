@@ -4,19 +4,19 @@ sys.path.extend('..')
 from weather import getWeather
 from pampy import match,_
 from Hardware  import  record_vad
+import requests
 import Speech.SpeechSynthesis as SpeechSynthesis
 import re
-import playsound
+from playsound import playsound
 from Skype import getTime as getTime
 from  snowboy import snowboydecoder
 import signal
 from Music import music
 from Hardware import record_vad
 from SmallChat import SmallChat
-from  Skype  import sklogin
 import multiprocessing
 from Skype import SkpyeEvent
-from osax import *
+import ctypes
 ## api接口的参数，账号
 APP_ID="18754384"
 APP_KEY="VjxtYrtYNaN7RIchnj0MfE7H"
@@ -86,22 +86,18 @@ class SmallChat_callback:
         """
         self.status=0                             # 0代表命令模式  1代表闲聊模式
         self.finished=False
-        self.play=multiprocessing.Value('i',0)    # 共享内存变量，只有一个int大小，控制模式
-        self.manager=multiprocessing.Manager()
-        self.uri=self.manager.list()
-        self.uri.append("0")                      # 写入uri对0号元素写入即可
-        self.play_process = multiprocessing.Process(target=music.run,args=(self.play,self.uri,))  # 创建播放器进程
-        self.play_process.start()        # 开始进程
+        self.player=music.Player()                # 开启vlc
+        self.OldVaule=0
 
+        # # 设置skype时间循环，同时拿出friends列表
         # 设置skype时间循环，同时拿出friends列表
-        self.SkpyeEvent=SkpyeEvent.SkypePing(skype_name,skype_password)
+        self.SkpyeEvent = SkpyeEvent.SkypePing(skype_name, skype_password)
         # friends字典
-        self.friends=self.SkpyeEvent.getFriends()
+        self.friends = self.SkpyeEvent.getFriends()
         # 开启Skype子进程
-        self.subProcessing=multiprocessing.Process(target=SkpyeEvent.run,args=(self.SkpyeEvent,))
+        self.subProcessing = multiprocessing.Process(target=SkpyeEvent.run, args=(self.SkpyeEvent,))
         self.subProcessing.daemon = True  # 设置子进程为父进程的守护进程（伴随进程），父进程死亡则子进程一起死亡
         self.subProcessing.start()
-
 
     def wakeup(self):
         """
@@ -114,12 +110,13 @@ class SmallChat_callback:
         """
         try:
             self.controled=0
-            if(self.play_process and self.play_process.is_alive() and self.play.value==2):
+            self.oldValue=0
+            if(self.player.is_playing()):
                 # 如果还在播放音乐
-                self.play.value=3     # 先暂停音乐
-                self.controled=1
-                self.oldValue=3       # 每次修改时纪录旧值
-            playsound.playsound("SystemSpeech/service/do.mp3")
+                self.player.pause()     # 先暂停播放
+                self.controled=1        # 记录：发生过暂停
+                self.oldValue=3         # 记录：每次修改时纪录旧值，如果不等于3，代表后面使用的其他关键的控制
+            playsound.playsound("../SystemSpeech/service/do.mp3")
             if self.status == 0:
                 command_path = "command.wav"
                 record_vad.record_vad(filePath=command_path, speechCount=50)  # 当前文件夹   命令时长应比较长
@@ -130,15 +127,14 @@ class SmallChat_callback:
                 self.smallchat()
             # 产生语音控制时，会停止播放音乐
             # 只有oldValue==3才会继续播放
-            print("oldValue:",self.oldValue)
-            print("play alive:",self.play_process.is_alive())
-            if(self.play_process.is_alive() and self.controled==1 and self.oldValue==3):
+            if( self.controled==1 and self.oldValue==3):
+                # 当发生了暂停、终止等命令后，不会进入此处
                 print('触发恢复')
-                self.play.value=5   # 恢复播放音乐
+                self.player.resume()
                 self.controled=0
                 self.oldValue=0
         except ConnectionError as  e:
-            playsound.playsound("SystemSpeech/service/netCheck.mp3")
+            playsound.playsound("../SystemSpeech/service/netCheck.mp3")
 
 
     def break_check(self):
@@ -155,7 +151,9 @@ class SmallChat_callback:
         :return:
         """
         try:
-            record_vad.record_vad("smallchat.wav", 50)  # 产生一个smallchat.pcm文件在底层
+            code=record_vad.record_vad("smallchat.wav", 50)  # 产生一个smallchat.pcm文件在底层
+            if(code==-2):
+                return    #认定识别错误，结束
             speech = AipSpeech(APP_ID, APP_KEY, SECRET_KEY)
             p = speech.asr(get_file_content('smallchat.pcm'), 'pcm', 16000, {
                 'dev_pid': 1537,
@@ -163,11 +161,11 @@ class SmallChat_callback:
             command = p['result'][0]     #从json中提取识别出来的文字
             print(command)
             if (command == ""):
-                playsound.playsound("SystemSpeech/service/sorry.mp3")
+                playsound.playsound("../SystemSpeech/service/sorry.mp3")
                 print("无法明白")
                 return
             elif (command == "退出闲聊模式。"):
-                playsound.playsound("SystemSpeech/service/end_chat.mp3")
+                playsound.playsound("../SystemSpeech/service/end_chat.mp3")
                 print("退出闲聊模式")
                 self.status = 0
                 return
@@ -180,26 +178,33 @@ class SmallChat_callback:
                 SpeechSynthesis.Synthesis(response, "smallchatResponse.mp3")
                 playsound.playsound("smallchatResponse.mp3")
         except Exception as  e:
-            playsound.playsound("SystemSpeech/service/netCheck.mp3")
+            playsound.playsound("../SystemSpeech/service/netCheck.mp3")
 
-    def sendMessage(self,message="",contract=""):
+    def sendMessage(self, message="", contract=""):
         """
         发送Skype消息
         :param message: 发送的消息
         :param contract: 联系人的display_name
         :return: None
         """
-        friend=""    # 因为通过语音识别得到的人民不一定包含姓,通过匹配得出朋友的display_name
-        for  i in self.friends.keys():
-            if (contract in  i or contract==i):
-                friend=self.friends[i]
+        friend = ""  # 因为通过语音识别得到的人民不一定包含姓,通过匹配得出朋友的display_name
+        for i in self.friends.keys():
+            if (contract in i or contract == i):
+                friend = self.friends[i]
                 break
-        if(friend==""):
+        if (friend == ""):
             return -1
-        else :
+        else:
             # 发送消息
-            friend.chat.sendMsg(message)
+            try:
+              friend.chat.sendMsg(message)
+            except requests.ConnectionError as e:
+                try:
+                  friend.chat.sendMsg(message)
+                except requests.ConnectionError as e:
+                    return -1
             return 0
+
 
     def Recognition(self,Path='Hardware/speech.pcm'):
         """
@@ -215,7 +220,7 @@ class SmallChat_callback:
         code = matchCode()
         # 一旦匹配就会立即返回不会再进行匹配
         if not p["err_no"]==0:     #发生错误时,提示网络问题同时返回
-            playsound.playsound("SystemSpeech/service/netCheck.mp3")
+            playsound.playsound("../SystemSpeech/service/netCheck.mp3")
             return
         command = p['result'][0]
         print(command)
@@ -229,7 +234,7 @@ class SmallChat_callback:
                                 )
             print(imformation)
             if (not imformation):
-                playsound.playsound('SystemSpeech/service/sorry.mp3')
+                playsound.playsound('../SystemSpeech/service/sorry.mp3')
                 return
             information = getWeather.getWeather(date=imformation[0], city=imformation[1])
             SpeechSynthesis.Synthesis(information, "response.mp3")
@@ -240,7 +245,7 @@ class SmallChat_callback:
                                 re.compile("现在的时间是多少"), code.setTimeCode(6),
                                 strict=False)
             if (not imformation):
-                playsound.playsound("SystemSpeech/service/sorry.mp3")
+                playsound.playsound("../SystemSpeech/service/sorry.mp3")
                 return
             nowTime = ""
             if (imformation == 5):
@@ -257,157 +262,119 @@ class SmallChat_callback:
             nowTime = getTime.getFullTime()
             SpeechSynthesis.Synthesis(nowTime, "response.mp3")
             playsound.playsound("response.mp3")
-        elif ("发送消息" in command):   #设定从10 开始设定为发送消息的code
-            imformation=match(command,
-                              re.compile("^发送消息给(\S+)。"), lambda x: code.setChatCode(code=10,contract=x),
-                              re.compile("^给(\S+)发送消息"), lambda x: code.setChatCode(code=10,contract=x),
-                              re.compile("^给(\S+)发送一条消息"),lambda x: code.setChatCode(code=10,contract=x),
-                              strict=False
-                              )
-            if not imformation :   # 上述匹配代码匹配的话，如果失败会返回false，false即没有匹配上任何规则
-                playsound.playsound("SystemSpeech/service/sorry.mp3")
+        elif ("发送消息" in command):  # 设定从10 开始设定为发送消息的code
+            imformation = match(command,
+                                re.compile("^发送消息给(\S+)。"), lambda x: code.setChatCode(code=10, contract=x),
+                                re.compile("^给(\S+)发送消息"), lambda x: code.setChatCode(code=10, contract=x),
+                                re.compile("^给(\S+)发送一条消息"), lambda x: code.setChatCode(code=10, contract=x),
+                                strict=False
+                                )
+            if not imformation:  # 上述匹配代码匹配的话，如果失败会返回false，false即没有匹配上任何规则
+                playsound.playsound("../SystemSpeech/service/sorry.mp3")
                 return
-            else :
-                if len(self.friends)==0:       # 如果由于网络原因，还未获得联系人字典的话，重新获取
-                    playsound.playsound('SystemSpeech/service/retry.mp3')
-                    self.friends=self.SkpyeEvent.getFriends()
-                    if len(self.friends)==0:
-                        playsound.playsound("SystemSpeech/service/netCheck.mp3")
-                        return
-                whatMesssage="发什么消息给"+imformation[1]
-                SpeechSynthesis.Synthesis(whatMesssage,"SystemSpeech/service/whatMessage.mp3")  # 根据联系人实时生成语音提示
-                playsound.playsound("SystemSpeech/service/whatMessage.mp3")
-                record_vad.record_vad("message_contents.mp3",speechCount=50)
-                message2text=speech.asr(get_file_content("message_contents.mp3"), 'pcm', 16000, {
-            'dev_pid': 1537,
-        })
-            # 语音发送失败会返回-1
-            if( self.sendMessage( message=message2text['result'][0],contract=imformation[1])==-1): #imfotmation[1]是朋友的名称
-                # 发送的消息如果失败了
-                playsound.playsound("SystemSpeech/service/contractNotFound.mp3")
             else:
-                playsound.playsound("SystemSpeech/Skype/sendSuccess.mp3")
+                if len(self.friends) == 0:  # 如果由于网络原因，还未获得联系人字典的话，重新获取
+                    playsound.playsound('../SystemSpeech/service/retry.mp3')
+                    self.friends = self.SkpyeEvent.getFriends()
+                    if len(self.friends) == 0:
+                        playsound.playsound("../SystemSpeech/service/netCheck.mp3")
+                        return
+                whatMesssage = "发什么消息给" + imformation[1]
+                SpeechSynthesis.Synthesis(whatMesssage, "../SystemSpeech/service/whatMessage.mp3")  # 根据联系人实时生成语音提示
+                playsound.playsound("../SystemSpeech/service/whatMessage.mp3")
+                record_vad.record_vad("message_contents.mp3", speechCount=50)
+                message2text = speech.asr(get_file_content("message_contents.mp3"), 'pcm', 16000, {
+                    'dev_pid': 1537,
+                })
+            # 语音发送失败会返回-1
+            if (self.sendMessage(message=message2text['result'][0],
+                                 contract=imformation[1]) == -1):  # imfotmation[1]是朋友的名称
+                # 发送的消息如果失败了
+                playsound.playsound("../SystemSpeech/service/contractNotFound.mp3")
+            else:
+                playsound.playsound("../SystemSpeech/Skype/sendSuccess.mp3")
 
-        elif "回复消息" in command:              # 发送Skype消息，不一样的匹配规则
-            imformation,friend=match(command,
-                              re.compile("给(\S+)回复消息"),lambda x:code.setChatCode(10,x),
-                              re.compile("回复消息"),code.setChatCode(code=11))
-            if(not imformation==10):
-                playsound.playsound("SystemSpeech/Skype/chooseWho.mp3")
-                record_vad.record_vad("SystemSpeech/Skype/who.wav",40)
-                friend=speech.asr(get_file_content('SystemSpeech/Skype/who.pcm'),'pcm',16000,{
-            'dev_pid': 1537,
-            } )['result'][0]
+        elif "回复消息" in command:  # 发送Skype消息，不一样的匹配规则
+            imformation, friend = match(command,
+                                        re.compile("给(\S+)回复消息"), lambda x: code.setChatCode(10, x),
+                                        re.compile("回复消息"), code.setChatCode(code=11))
+            if (not imformation == 10):
+                playsound.playsound("../SystemSpeech/Skype/chooseWho.mp3")
+                record_vad.record_vad("../SystemSpeech/Skype/who.wav", 40)
+                friend = speech.asr(get_file_content('../SystemSpeech/Skype/who.pcm'), 'pcm', 16000, {
+                    'dev_pid': 1537,
+                })['result'][0]
 
-            playsound.playsound("SystemSpeech/Skype/whatMessage.mp3")
-            record_vad.record_vad("SystemSpeech/Skype/whatMessage.wav",40)
-            message=speech.asr(get_file_content('SystemSpeech/Skype/whatMessage.pcm'),'pcm',16000,{
-            'dev_pid': 1537,
-            } )['result'][0]
+            playsound.playsound("../SystemSpeech/Skype/whatMessage.mp3")
+            record_vad.record_vad("../SystemSpeech/Skype/whatMessage.wav", 40)
+            message = speech.asr(get_file_content('../SystemSpeech/Skype/whatMessage.pcm'), 'pcm', 16000, {
+                'dev_pid': 1537,
+            })['result'][0]
             if (self.sendMessage(message=message, contract=friend) == -1):  # imfotmation[1]是朋友的名称
                 # 发送的消息如果失败了
-                playsound.playsound("SystemSpeech/service/contractNotFound.mp3")
+                playsound.playsound("../SystemSpeech/service/contractNotFound.mp3")
             else:
-                playsound.playsound("SystemSpeech/Skype/sendSuccess.mp3")
+                playsound.playsound("../SystemSpeech/Skype/sendSuccess.mp3")
         elif  "播放音乐"  in command or "播放歌曲" in  command:
             self.oldValue = 0
-            playsound.playsound("SystemSpeech/music/musicNameRequired.mp3")
-            record_vad.record_vad("SystemSpeech/music/musicName.wav",40)
-            musicName=speech.asr(get_file_content("SystemSpeech/music/musicName.pcm"),'pcm',16000,{
+            playsound.playsound("../SystemSpeech/music/musicNameRequired.mp3")
+            record_vad.record_vad("../SystemSpeech/music/musicName.wav",40)
+            musicName=speech.asr(get_file_content("../SystemSpeech/music/musicName.pcm"),'pcm',16000,{
                 "dev_pid":1537
             })['result'][0]
             print("歌曲名：",musicName.split("。")[0])
-            self.uri[0]=music.searchNetMusic(musicName.split("。")[0])  #搜索同时播放音乐，去除识别产生的句号，实际也可以不去除
-            self.play.value=1    # 设置为1就会开始播放
-            return
-        elif "播放" in command:
-            # 20即有歌名匹配
-            # 21则没有匹配到歌名
-            # code==20时歌名才有意义
-            self.oldValue=0
-            musicCodeAndName=match(command,
-                            re.compile("^播放(\S+)。"),lambda x:code.setMusicCode(20,x),
-                            re.compile("^播放。$"), code.setMusicCode(21),
-                            strict=False)
-            if (not musicCodeAndName ):
-                playsound.playsound("SystemSpeech/music/ReMusicNameReqiured.mp3")
-            elif musicCodeAndName[0]==21  :
-                playsound.playsound("SystemSpeech/music/musicNameReqiured.mp3")
-            else:
-                #成功匹配到歌曲名称  搜索同时播放音乐
-                self.uri[0]=music.searchNetMusic(musicCodeAndName[1])
-                self.play.value=1
-                #直接返回即可
-                return
-            record_vad.record_vad("SystemSpeech/music/musicName.wav", 40)
-            musicName = speech.asr(get_file_content("SystemSpeech/music/musicName.pcm"), 'pcm', 16000, {
-                "dev_pid": 1537
-            })['result'][0]
-            self.uri[0]=music.searchNetMusic(musicName.split("。")[0])   #搜索同时播放音乐 ,去除句号
-            self.play.value=1
+            self.player.set_uri(music.searchNetMusic(musicName.split("。")[0])  )#搜索同时播放音乐，去除识别产生的句号，实际也可以不去除
+            self.player.play()
             return
         elif "暂停播放" in command:
             #音乐进程不为空 音乐进程仍然在播放
-            if self.play_process and self.play_process.is_alive() and self.play.value==2:
+            if not self.player.playing_uri=="":
                #仍然在播放音乐的话
-               playsound.playsound("SystemSpeech/service/Idoit.mp3")
-               self.play.value=3
-               self.oldValue=0    #使oldValue无效
+               playsound.playsound("../SystemSpeech/service/Idoit.mp3")
+               self.oldValue=0         # 告知，已修改
         elif "继续播放"  in command:
             # 音乐进程不为空，音乐进程没有被杀死 音乐暂停播放
-            if self.play_process and self.play_process.is_alive() and not self.play.value==4:  # 仍然在播放音乐的话
-                playsound.playsound("SystemSpeech/service/Idoit.mp3")
-                self.play.value=5
-                self.oldValue=0    #使oldValue无效
+            if not self.player.playing_uri=="": # 仍然在播放音乐的话
+                playsound.playsound("../SystemSpeech/service/Idoit.mp3")
+                self.player.resume()
+                self.oldValue=0
         elif "停止播放" in command:
 
-            if self.play_process and self.play.value==2 :
-                playsound.playsound("SystemSpeech/service/Idoit.mp3")
-                self.play.value=7
+            if not self.player.playing_uri=="" :
+                playsound.playsound("../SystemSpeech/service/Idoit.mp3")
+                self.player.stop()
                 self.oldValue=0
+
         elif "增大音量" in command or "大声点" in command:
             # 如果在播放音乐，等等，实际上似乎用不上消息队列
             # 如果在播放音乐，增加音乐音量
-            playsound.playsound("SystemSpeech/service/Idoit.mp3")
-            if self.play_process and self.play.value>1:
-                self.play.value=8
+            playsound.playsound("../SystemSpeech/service/Idoit.mp3")
+            if self.player.is_playing():
+                self.player.add_volume()
             else :
                 #  TODO 如果没有播放音乐，则增加音箱音量  MAC端 迁移到树莓派时需要修正
-                sa=OSAX()
-                volume=sa.get_volume()
-                sa.set_volume(volume+5)
+                pass
         elif "减小音量" in command or "小声点" in command:
             # 如果在播放音乐，等等，实际上似乎用不上消息队列
             # 如果在播放音乐，减小音乐音量
-            playsound.playsound("SystemSpeech/service/Idoit.mp3") # 好的
-            if self.play_process and self.play.value>1:
-                self.play.value=9    # 此处测试不通过消息队列处理
+            playsound.playsound("../SystemSpeech/service/Idoit.mp3") # 好的
+            if not self.player.playing_uri=="":
+                self.player.sub_volume()   # 此处测试不通过消息队列处理
             else:
+                pass
                 #  TODO 如果没有播放音乐，则减少音箱音量  MAC端 迁移到树莓派时需要修正
-                sa = OSAX()
-                volume = sa.get_volume()
-                sa.set_volume(volume - 5)
+                #  TODO 暂时没有修正方案
 
 
 if __name__=="__main__":
-    code=matchCode()
-    p="明天天气怎么样?"
-    imformation = match(p,
-                        re.compile("^今天天气怎么样"), code.setWeatherCode(1),
-                        re.compile("^明天天气怎么样"), code.setWeatherCode(2, date=1),
-                        re.compile("^(\S+)今天天气怎么样"), lambda x: code.setWeatherCode(3, date=0, location=x),
-                        re.compile("^(\S+)明天天气怎么样"), lambda x: code.setWeatherCode(4, date=1, location=x),
-                        _, code.setWeatherCode(1)
-                        )
-    print(imformation)
-    imformation = match(p,
-                        re.compile("今天天气怎么样"), code.setCode(num=1),
-                        re.compile("明天天气怎么样"), code.setCode(num=2, date=1, location=""),
-                        re.compile("^(\S+)今天天气怎么样"), lambda x: code.setCode(4, date=0, location=x),
-                        re.compile("^(\S+)明天天气怎么样"), lambda x: code.setCode(8, date=1, location=x),
-                        _, code.setCode(num=code.code, date=code.date, location=code.location)
-                        )
-    print(imformation)
+    record_vad.record_vad("smallchat.wav", 50)  # 产生一个smallchat.pcm文件在底层
+    speech = AipSpeech(APP_ID, APP_KEY, SECRET_KEY)
+    p = speech.asr(get_file_content('smallchat.pcm'), 'pcm', 16000, {
+        'dev_pid': 1537,
+    })
+    command = p['result'][0]  # 从json中提取识别出来的文字
+    print(command)
+
 
 
 

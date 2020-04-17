@@ -31,6 +31,9 @@ def record_vad(filePath="speech.wav",speechCount=40):
     count=0
     speechnum=0
     while not (speechnum>speechCount and count>=10):
+        if(count>60):
+            # 长时间没有说话，直接结束
+            return -2
         data=stream.read(framesNum)
         frame.append(data)
         isSpeech=vad.is_speech(data,framerate)
@@ -50,6 +53,7 @@ def record_vad(filePath="speech.wav",speechCount=40):
     print("结束录音")
     pcm_path=filePath.split("wav")[0]+"pcm"   #生成pcm文件名
     wav2pcm.wav2pcm(filePath,pcm_path)
+    return 0
 
 if __name__=="__main__":
     record_vad()

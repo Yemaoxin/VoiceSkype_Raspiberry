@@ -74,19 +74,19 @@ def interrupt_callback():
 
 
 def wakeup():
-        playsound("../SystemSpeech/do.mp3")
+        playsound.playsound("../SystemSpeech/do.mp3")
         record.record_vad("Command.wav")
         SpeechRecognition()
 
 def recordAndtrain():
-    playsound("SystemSpeech/trainVoice/start_set.mp3")
-    playsound("SystemSpeech/trainVoice/start_set1.mp3")
+    playsound.playsound("../SystemSpeech/trainVoice/start_set.mp3")
+    playsound.playsound("../SystemSpeech/trainVoice/start_set1.mp3")
     record.record_vad("wav1.wav")
-    playsound("SystemSpeech/trainVoice/start_set2.mp3")
+    playsound.playsound("../SystemSpeech/trainVoice/start_set2.mp3")
     record.record_vad("wav2.wav")
-    playsound("SystemSpeech/trainVoice/start_set3.mp3")
+    playsound.playsound("../SystemSpeech/trainVoice/start_set3.mp3")
     record.record_vad("wav3.wav")
-    playsound("SystemSpeech/trainVoice/training.mp3")
+    playsound.playsound("../SystemSpeech/trainVoice/training.mp3")
     trainHotWord(wav1="wav1.wav",wav2="wav2.wav",wav3="wav3.wav",out="ye11.pmdl")
 
 

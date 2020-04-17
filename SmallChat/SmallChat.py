@@ -16,7 +16,7 @@ import string
 app_id="2130944758"
 app_key="LGcjMhNMuD8wsYFI"
 url="https://api.ai.qq.com/fcgi-bin/nlp/nlp_textchat?"
-import playsound
+from playsound import playsound
 
 def getSign(data={}):
     """
@@ -93,7 +93,7 @@ def sendQuestion(question=""):
     response=doHttpGet(data)
     print(response)
     if(not  response['ret']==0):
-        playsound.playsound('SystemSpeech/service/sorry.mp3')
+        playsound.playsound('../SystemSpeech/service/sorry.mp3')
     else:
         return  response['data']['answer']
 

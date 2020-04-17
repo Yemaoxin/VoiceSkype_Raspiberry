@@ -8,7 +8,7 @@ log=Sklog()
 def login():
     contacts = {}
     retryCount=0
-    while (retryCount<Constants.retryLimit):
+    while (retryCount<3):
         try:
             account = Skype("1648428830@qq.com", "123456789ymx")
             ## 为啥获取到的数据却没法子取出来
@@ -24,9 +24,9 @@ def login():
 
 
 if __name__=="__main__":
-    c=login()
+    _,c=login()
 
-    # c['jh'].chat.sendMsg("你在干嘛呀小姐姐")
+    c['二弟'].chat.sendMsg("你在干嘛呀小姐姐")
 
 
 

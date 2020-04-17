@@ -4,7 +4,7 @@ sys.path.append("..")
 import Wakeup.wake as wake
 from snowboy import snowboydecoder
 import signal
-import playsound
+from playsound import playsound
 import  Hardware.record_vad as record_vad
 import Speech.SpeechRecognition as SpeechRecognition
 from Speech.SpeechRecognition import SmallChat_callback
@@ -26,7 +26,7 @@ def wakeup():
     弃用
     :return:
     """
-    playsound.playsound("SystemSpeech/service/do.mp3")
+    playsound.playsound("../SystemSpeech/service/do.mp3")
     command_path="command.wav"
     record_vad.record_vad(filePath=command_path,speechCount=50)  #当前文件夹   命令时长应比较长
     command_path=command_path.split('wav')[0]+"pcm"

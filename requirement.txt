@@ -1,5 +1,4 @@
-playsound==1.2.2
-baidu-aip==2.21.0
+baidu-aip==2.2.18.0
 pypng==0.0.20
 requests==2.23.0
 selenium==3.141.0
@@ -7,16 +6,15 @@ setuptools==41.2.0
 SkPy==0.9.1
 soupsieve==2.0
 tqdm==4.43.0
-urllib3==1.25.8
+mplayer.py
+urllib3
 webrtcvad==2.0.10
 chardet==3.0.4
 future==0.18.2
 idna==2.9
-Pillow==7.0.0
 pip==20.0.2
 playsound==1.2.2
 PyAudio==0.2.11
-baidu-aip==2.2.18.0
 beautifulsoup4==4.8.2
 certifi==2019.11.28
 pampy==0.3.0

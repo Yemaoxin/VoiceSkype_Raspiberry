@@ -11,7 +11,7 @@ apt-get install pulseaudio
 apt-get install sox
 apt-get install libatlas-base-dev
 apt-get install  vlc
-
+apt-get install mplayer
 wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
@@ -21,8 +21,5 @@ npm config set registry https://registry.npm.taobao.org             #  npm换源
 git clone https://github.com/Binaryify/NeteaseCloudMusicApi.git
 cd  NeteaseCloudMusicApi
 npm install
-nohup node app.js &         #此处不确定效果，挂起
 
-
-
-
+pip3 install

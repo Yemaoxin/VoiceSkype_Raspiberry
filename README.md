@@ -25,7 +25,7 @@
     5v/9v 2A/1A 充电头 *1  
     typeC充电器 *1  
     树莓派九层亚克力板框架+风扇*1  
-    树莓派免驱麦克风（10元）*1  
+    麦克风阵列（86元）*1  
     索爱音箱（20元）*1  
     整套下来450元  
 
@@ -61,8 +61,67 @@
 ### 安装
 
 1. 安装python3和pip
-2. pip -r requirement.txt
-3. sh install.sh
+
+2. ```sudo bash install.sh```
+
+3. 检查设备是否已经连接音箱和麦克风(检查麦克风是否可用)
+
+   ```bash
+   # bash
+   rec t.wav
+   ```
+
+​       如果发现错误时，说明没有连接麦克风或者声卡不可用
+
+​       参考snowboy http://docs.kitt.ai/snowboy/#set-up-audio
+
+4. 由于snowboy的编译仓库下载速度比较慢，故独立出
+
+   ```
+   cd 
+   git clone https://github.com/Kitt-AI/snowboy.git
+   cd swig/Python3
+   make
+   ```
+
+5. 将编译得到的
+
+   _snowboydetect.so
+   snowboydecoder.py
+   snowboydetect.py
+
+   复制到项目的snowboy目录下
+
+6. 树莓派需要另外配置声卡，Ubuntu不需要
+
+   ```
+   sudo nano ~/.asoundrc
+   ```
+
+      ```
+ type asym
+   playback.pcm {
+     type plug
+     slave.pcm "hw:0,0"
+   }
+   capture.pcm {
+     type plug
+     slave.pcm "hw:1,0"
+   }
+}
+      ```
+
+将上述内容复制到文件中
+
+7. 启动网易云音乐API服务器
+
+      ```
+cd
+cd NeteaseCloudMusicApi
+sudo nohup node app.js &
+      ```
+
+
 
 (仍然在完善内容中，暂时不全)
 
@@ -96,3 +155,12 @@
 7. 减小音量｜小声点
 8. 增大音量｜大声点
 9. 暂停播放｜继续播放｜停止播放
+
+
+
+### 注意事项：
+
+snowboy需要另外进行手动编译
+
+同时，不建议make install 
+

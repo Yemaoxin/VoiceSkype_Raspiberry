@@ -1,7 +1,7 @@
 from snowboy import snowboydecoder
 import sys
 import signal
-import playsound
+from playsound import playsound
 
 
 
